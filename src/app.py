@@ -5,6 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
+from copy import deepcopy
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -20,7 +21,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
 
 # In-memory activity database
-activities = {
+INITIAL_ACTIVITIES = {
     "Chess Club": {
         "description": "Learn strategies and compete in chess tournaments",
         "schedule": "Fridays, 3:30 PM - 5:00 PM",
@@ -78,6 +79,17 @@ activities = {
 }
 
 
+def reset_activities() -> None:
+    app.state.activities = deepcopy(INITIAL_ACTIVITIES)
+
+
+def get_activity_store():
+    return app.state.activities
+
+
+reset_activities()
+
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
@@ -85,12 +97,14 @@ def root():
 
 @app.get("/activities")
 def get_activities():
-    return activities
+    return get_activity_store()
 
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
     """Sign up a student for an activity"""
+    activities = get_activity_store()
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -110,6 +124,8 @@ def signup_for_activity(activity_name: str, email: str):
 @app.post("/activities/{activity_name}/unregister")
 def unregister_from_activity(activity_name: str, email: str):
     """Remove a student from an activity"""
+    activities = get_activity_store()
+
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
     activity = activities[activity_name]
